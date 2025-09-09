@@ -1,0 +1,988 @@
+<script type="text/javascript">
+        var gk_isXlsx = false;
+        var gk_xlsxFileLookup = {};
+        var gk_fileData = {};
+        function filledCell(cell) {
+          return cell !== '' && cell != null;
+        }
+        function loadFileData(filename) {
+        if (gk_isXlsx && gk_xlsxFileLookup[filename]) {
+            try {
+                var workbook = XLSX.read(gk_fileData[filename], { type: 'base64' });
+                var firstSheetName = workbook.SheetNames[0];
+                var worksheet = workbook.Sheets[firstSheetName];
+
+                // Convert sheet to JSON to filter blank rows
+                var jsonData = XLSX.utils.sheet_to_json(worksheet, { header: 1, blankrows: false, defval: '' });
+                // Filter out blank rows (rows where all cells are empty, null, or undefined)
+                var filteredData = jsonData.filter(row => row.some(filledCell));
+
+                // Heuristic to find the header row by ignoring rows with fewer filled cells than the next row
+                var headerRowIndex = filteredData.findIndex((row, index) =>
+                  row.filter(filledCell).length >= filteredData[index + 1]?.filter(filledCell).length
+                );
+                // Fallback
+                if (headerRowIndex === -1 || headerRowIndex > 25) {
+                  headerRowIndex = 0;
+                }
+
+                // Convert filtered JSON back to CSV
+                var csv = XLSX.utils.aoa_to_sheet(filteredData.slice(headerRowIndex)); // Create a new sheet from filtered array of arrays
+                csv = XLSX.utils.sheet_to_csv(csv, { header: 1 });
+                return csv;
+            } catch (e) {
+                console.error(e);
+                return "";
+            }
+        }
+        return gk_fileData[filename] || "";
+        }
+        </script><!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>النماذج الإدارية</title>
+  <style>
+    body {
+      margin: 0;
+      padding: 0;
+      font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+      background-color: #0f1a35;
+      color: #ffffffd3;
+      direction: rtl;
+      display: flex;
+      justify-content: center;
+      min-height: 100vh;
+      position: relative;
+      overflow-x: hidden;
+    }
+    @keyframes pulseGlow {
+      0% { box-shadow: 0 0 0 #ffffff; }
+      50% { box-shadow: 0 0 12px #ffffff; }
+      100% { box-shadow: 0 0 0 #ffffff; }
+    }
+    input:hover, select:hover, textarea:hover, button:hover,
+    input:focus, select:focus, textarea:focus, button:focus {
+      border-color: #ffffff;
+      animation: pulseGlow 0.6s ease;
+      outline: none;
+    }
+    canvas#starfield {
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      z-index: -1;
+      background: #0f1a35;
+    }
+    .custom-alert {
+      position: fixed;
+      top: 20px;
+      right: 20px;
+      padding: 15px 30px;
+      border-radius: 12px;
+      box-shadow: 0 4px 20px rgba(0, 0, 0, 0.3);
+      opacity: 0;
+      transform: translateY(-20px);
+      transition: all 0.4s ease-in-out;
+      z-index: 99999;
+      font-weight: bold;
+      font-size: 1.1rem;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+    .custom-alert.show {
+      opacity: 1;
+      transform: translateY(0);
+    }
+    .custom-alert.success {
+      background-color: #28a745;
+      color: white;
+      border: 2px solid #218838;
+      animation: successPulse 0.5s ease-in-out;
+    }
+    .custom-alert.error {
+      background-color: #dc3545;
+      color: white;
+      border: 2px solid #c82333;
+      animation: errorShake 0.4s ease-in-out;
+    }
+    @keyframes successPulse {
+      0% { transform: scale(1); }
+      50% { transform: scale(1.05); }
+      100% { transform: scale(1); }
+    }
+    @keyframes errorShake {
+      0%, 100% { transform: translateX(0); }
+      25% { transform: translateX(-5px); }
+      50% { transform: translateX(5px); }
+      75% { transform: translateX(-3px); }
+    }
+    .image-gallery {
+      position: absolute;
+      top: 20px;
+      left: 50%;
+      transform: translateX(-50%);
+      display: flex;
+      justify-content: center;
+      gap: 1000px;
+      padding: 10px;
+      z-index: 0;
+    }
+    .image-gallery img {
+      width: 250px;
+      height: auto;
+      border: none;
+      object-fit: contain;
+      border-radius: 10px;
+      box-shadow: 0 0 10px rgba(0, 0, 0, 0.7), 0 0 20px rgba(0, 0, 0, 0.5);
+      transition: transform 0.3s ease;
+    }
+    .image-gallery img:hover {
+      transform: scale(1.05);
+    }
+    .container {
+      width: 600px;
+      height: 800px;
+      margin: 40px auto;
+      background: #0f1a35;
+      padding: 30px;
+      border: 1.5px solid #ffffff;
+      border-radius: 20px;
+      box-shadow: 0 0 10px rgba(255, 255, 255, 0.7), 0 0 20px rgba(0, 0, 0, 0.5);
+      animation: glow 3s ease-in-out infinite alternate;
+      z-index: 1;
+      overflow-y: auto;
+    }
+    @keyframes glow {
+      0% {
+        box-shadow: 0 0 10px rgba(255, 255, 255, 0.7), 0 0 20px rgba(0, 0, 0, 0.5);
+      }
+      100% {
+        box-shadow: 0 0 20px rgba(255, 255, 255, 0.9), 0 0 30px rgba(0, 0, 0, 0.6);
+      }
+    }
+    h2 {
+      text-align: center;
+      font-size: 1.8rem;
+      margin-bottom: 20px;
+      font-weight: 800;
+      letter-spacing: 1.5px;
+      text-shadow: 0 0 5px rgb(255, 255, 255);
+    }
+    label {
+      font-weight: bold;
+      display: block;
+      margin-top: 15px;
+      font-size: 1.1rem;
+    }
+    input, select, textarea {
+      width: 100%;
+      padding: 12px 14px;
+      margin-top: 8px;
+      border-radius: 10px;
+      border: 2px solid rgb(29, 28, 28);
+      background: #02204d;
+      color: #ffffff;
+      font-size: 1rem;
+      font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+      transition: border-color 0.3s ease, box-shadow 0.3s ease;
+    }
+    input:focus, select:focus, textarea:focus {
+      outline: none;
+      border-color: #ffffff;
+      box-shadow: 0 0 8px rgba(255, 255, 255, 0.8);
+    }
+    textarea {
+      resize: vertical;
+      height: 100px;
+    }
+    button {
+      background-color: #ffffff;
+      color: #02204d;
+      font-weight: 900;
+      border: none;
+      padding: 14px 0;
+      border-radius: 12px;
+      cursor: pointer;
+      font-size: 1.2rem;
+      letter-spacing: 1px;
+      box-shadow: 0 0 15px rgba(255, 255, 255, 0.8);
+      transition: background-color 0.3s ease, box-shadow 0.3s ease;
+      margin-top: 20px;
+      width: 100%;
+    }
+    button:hover {
+      background-color: #e0e0e0;
+      box-shadow: 0 0 20px rgba(255, 255, 255, 1);
+    }
+    .form-section {
+      display: none;
+    }
+    .form-section.active {
+      display: block;
+    }
+    .note {
+      color: #ffffff;
+      font-size: 1rem;
+      margin-top: 10px;
+      font-style: italic;
+      text-align: right;
+    }
+    #loadingOverlay {
+      position: fixed;
+      inset: 0;
+      background: black;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      z-index: 99999;
+      opacity: 1;
+      transition: opacity 1s ease;
+      pointer-events: all;
+    }
+    #loadingOverlay.fade-out {
+      opacity: 0;
+      pointer-events: none;
+    }
+    .dual-fade-loader {
+      position: relative;
+      width: 100px;
+      height: 100px;
+    }
+    .circle {
+      position: absolute;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      border-radius: 50%;
+      border: 6px solid white;
+      opacity: 0;
+      animation: fadePulse 1.4s infinite ease-in-out;
+    }
+    .circle:nth-child(2) {
+      animation-delay: 0.7s;
+      border-color: #ccc;
+    }
+    @keyframes fadePulse {
+      0% { transform: scale(0.5); opacity: 0.3; }
+      50% { transform: scale(1); opacity: 1; }
+      100% { transform: scale(1.5); opacity: 0; }
+    }
+  </style>
+</head>
+<body>
+  <div id="loadingOverlay">
+    <div class="dual-fade-loader">
+      <div class="circle"></div>
+      <div class="circle"></div>
+    </div>
+  </div>
+  <div class="image-gallery">
+    <img src="https://www.raed.net/img?id=1413653" alt="image-1" >
+    <img src="https://www.raed.net/img?id=1413652" alt="c4ee8adac60983d6253f84845957d7e5" >
+  </div>
+  <div class="container">
+    <h2 id="formTitle">اختر نوع الطلب</h2>
+    <label>نوع الطلب</label>
+    <select id="requestType" onchange="switchForm()">
+      <option value="">اختر نوع الطلب</option>
+      <option value="فصل">فصل عسكري</option>
+      <option value="حكم">حكم عسكري</option>
+      <option value="استدعاء">استدعاء عسكري</option>
+      <option value="تسجيل_دخول">بادر تسجيل دخول في الخدمة العسكرية</option>
+      <option value="تعيين">تعيين عسكري</option>
+      <option value="ترقية">ترقية عسكرية</option>
+      <option value="إعفاء">إعفاء عسكري</option>
+    </select>
+    <!-- نموذج الفصل العسكري -->
+    <div id="formDismissal" class="form-section">
+      <label for="issuerDismissal">جهة الإصدار</label>
+      <select id="issuerDismissal" required>
+        <option value="">اختر جهة الإصدار</option>
+        <option value="1271924904488337598">رئاسة المجلس العسكري</option>
+        <option value="1271924904488337599">المجلس العسكري</option>
+      </select>
+      <label for="investigationFileDismissal">رقم ملف التحقيق</label>
+      <input type="text" id="investigationFileDismissal" placeholder="أدخل رقم ملف التحقيق" required />
+      <label for="soldierCopyIdDismissal">كوبي آيدي العسكري المحاكم</label>
+      <input type="text" id="soldierCopyIdDismissal" placeholder="أدخل كوبي آيدي العسكري (مثال: 123456789012345678)" required />
+      <label for="soldierNameCode">اسم العسكري وكوده</label>
+      <input type="text" id="soldierNameCode" placeholder="أدخل اسم العسكري وكوده" />
+      <label for="judgmentDismissal">الحكم</label>
+      <textarea id="judgmentDismissal" placeholder="أدخل نص الحكم" required></textarea>
+      <label for="reasonDismissal">السبب</label>
+      <textarea id="reasonDismissal" placeholder="أدخل السبب" required></textarea>
+      <button onclick="copyDismissal()">نسخ نص الفصل العسكري</button>
+    </div>
+    <!-- نموذج الحكم العسكري -->
+    <div id="formJudgment" class="form-section">
+      <label for="issuerJudgment">جهة الإصدار</label>
+      <select id="issuerJudgment" required>
+        <option value="">اختر جهة الإصدار</option>
+        <option value="1271924904488337598">رئاسة المجلس العسكري</option>
+        <option value="1271924904488337599">المجلس العسكري</option>
+      </select>
+      <label for="investigationFileJudgment">رقم ملف التحقيق</label>
+      <input type="text" id="investigationFileJudgment" placeholder="أدخل رقم ملف التحقيق" required />
+      <label for="soldierCopyIdJudgment">كوبي آيدي العسكري المحاكم</label>
+      <input type="text" id="soldierCopyIdJudgment" placeholder="أدخل كوبي آيدي العسكري (مثال: 123456789012345678)" required />
+      <label for="judgmentJudgment">الحكم</label>
+      <textarea id="judgmentJudgment" placeholder="أدخل نص الحكم" required></textarea>
+      <label for="reasonJudgment">السبب</label>
+      <textarea id="reasonJudgment" placeholder="أدخل السبب" required></textarea>
+      <button onclick="copyMilitaryJudgment()">نسخ نص الحكم العسكري</button>
+    </div>
+    <!-- نموذج الاستدعاء العسكري -->
+    <div id="formSummon" class="form-section">
+      <label for="additionalIdsSummon">منشنات الاستدعاء (كوبي آيدي، أدخل واحدًا لكل سطر)</label>
+      <textarea id="additionalIdsSummon" placeholder="أدخل كوبي آيدي للاستدعاء (مثال:\n123456789012345678\n987654321098765432)" rows="4"></textarea>
+      <button onclick="copySummon()">نسخ نص الاستدعاء العسكري</button>
+    </div>
+    <!-- نموذج بادر تسجيل دخول في الخدمة العسكرية -->
+    <div id="formLogin" class="form-section">
+      <label for="additionalIdsLogin">منشنات إضافية (كوبي آيدي، أدخل واحدًا لكل سطر)</label>
+      <textarea id="additionalIdsLogin" placeholder="أدخل كوبي آيدي إضافي لكل سطر (مثال:\n123456789012345678\n987654321098765432)" rows="4"></textarea>
+      <button onclick="copyLogin()">نسخ نص تسجيل الدخول</button>
+    </div>
+    <!-- نموذج التعيين العسكري -->
+    <div id="formAssignment" class="form-section">
+      <label for="assignmentSection">قسم التعيين</label>
+      <select id="assignmentSection" required>
+        <option value="">اختر قسم التعيين</option>
+        <option value="قسم المتابعة والإشراف">قسم المتابعة والإشراف</option>
+        <option value="هيئة المحاكمات العسكرية">هيئة المحاكمات العسكرية</option>
+        <option value="مجلس القضاء العسكري">مجلس القضاء العسكري</option>
+      </select>
+      <label for="soldierIdsAssignment">منشنات العسكريين (كوبي آيدي، أدخل واحدًا لكل سطر)</label>
+      <textarea id="soldierIdsAssignment" placeholder="أدخل كوبي آيدي للعسكريين (مثال:\n123456789012345678\n987654321098765432)" rows="4" required></textarea>
+      <button onclick="copyAssignment()">نسخ نص التعيين العسكري</button>
+    </div>
+    <!-- نموذج الترقية العسكرية -->
+    <div id="formPromotion" class="form-section">
+      <label for="fromSection">الأول من</label>
+      <select id="fromSection" required>
+        <option value="">اختر القسم</option>
+        <option value="قسم المتابعة والإشراف">قسم المتابعة والإشراف</option>
+        <option value="هيئة المحاكمات العسكرية">هيئة المحاكمات العسكرية</option>
+        <option value="مجلس القضاء العسكري">مجلس القضاء العسكري</option>
+      </select>
+      <label for="toSection">الثانية إلى</label>
+      <select id="toSection" required>
+        <option value="">اختر القسم</option>
+        <option value="قسم المتابعة والإشراف">قسم المتابعة والإشراف</option>
+        <option value="هيئة المحاكمات العسكرية">هيئة المحاكمات العسكرية</option>
+        <option value="مجلس القضاء العسكري">مجلس القضاء العسكري</option>
+      </select>
+      <label for="soldierCopyIdPromotion">كوبي آيدي العسكري</label>
+      <textarea id="soldierCopyIdPromotion" placeholder="أدخل كوبي آيدي للعسكريين (مثال:\n123456789012345678\n987654321098765432)" rows="4" required></textarea>
+      <button onclick="copyPromotion()">نسخ نص الترقية العسكرية</button>
+    </div>
+    <!-- نموذج الإعفاء العسكري -->
+    <div id="formExemption" class="form-section">
+      <label for="soldierCopyIdExemption">كوبي آيدي العسكري</label>
+      <textarea id="soldierCopyIdExemption" placeholder="أدخل كوبي آيدي للعسكريين (مثال:\n123456789012345678\n987654321098765432)" rows="4" required></textarea>
+      <button onclick="copyExemption()">نسخ نص الإعفاء العسكري</button>
+    </div>
+  </div>
+  <div id="notification" class="custom-alert"></div>
+  <canvas id="starfield"></canvas>
+  <script type="text/javascript">
+    var gk_isXlsx = false;
+    var gk_xlsxFileLookup = {};
+    var gk_fileData = {};
+    function filledCell(cell) {
+      return cell !== '' && cell != null;
+    }
+    function loadFileData(filename) {
+      if (gk_isXlsx && gk_xlsxFileLookup[filename]) {
+        try {
+          var workbook = XLSX.read(gk_fileData[filename], { type: 'base64' });
+          var firstSheetName = workbook.SheetNames[0];
+          var worksheet = workbook.Sheets[firstSheetName];
+          var jsonData = XLSX.utils.sheet_to_json(worksheet, { header: 1, blankrows: false, defval: '' });
+          var filteredData = jsonData.filter(row => row.some(filledCell));
+          var headerRowIndex = filteredData.findIndex((row, index) =>
+            row.filter(filledCell).length >= filteredData[index + 1]?.filter(filledCell).length
+          );
+          if (headerRowIndex === -1 || headerRowIndex > 25) {
+            headerRowIndex = 0;
+          }
+          var csv = XLSX.utils.aoa_to_sheet(filteredData.slice(headerRowIndex));
+          csv = XLSX.utils.sheet_to_csv(csv, { header: 1 });
+          return csv;
+        } catch (e) {
+          console.error(e);
+          return "";
+        }
+      }
+      return gk_fileData[filename] || "";
+    }
+    // Starfield animation with Pleiades
+    const canvas = document.getElementById('starfield');
+    const ctx = canvas.getContext('2d');
+    function resizeCanvas() {
+      canvas.width = window.innerWidth;
+      canvas.height = window.innerHeight;
+    }
+    window.addEventListener('resize', resizeCanvas);
+    resizeCanvas();
+    const stars = [];
+    const numStars = 200;
+    for (let i = 0; i < numStars; i++) {
+      stars.push({
+        x: Math.random() * canvas.width,
+        y: Math.random() * canvas.height,
+        radius: Math.random() * 1.5 + 0.5,
+        speed: Math.random() * 0.5 + 0.2,
+        opacity: Math.random() * 0.5 + 0.3
+      });
+    }
+    const pleiades = [
+      { x: canvas.width * 0.7, y: canvas.height * 0.3, radius: 3, opacity: 0.9 },
+      { x: canvas.width * 0.71, y: canvas.height * 0.31, radius: 2.5, opacity: 0.8 },
+      { x: canvas.width * 0.69, y: canvas.height * 0.29, radius: 2.5, opacity: 0.8 },
+      { x: canvas.width * 0.72, y: canvas.height * 0.295, radius: 2, opacity: 0.7 },
+      { x: canvas.width * 0.68, y: canvas.height * 0.305, radius: 2, opacity: 0.7 },
+      { x: canvas.width * 0.705, y: canvas.height * 0.285, radius: 2.2, opacity: 0.75 },
+      { x: canvas.width * 0.715, y: canvas.height * 0.315, radius: 2.2, opacity: 0.75 }
+    ];
+    function drawStars() {
+      try {
+        ctx.clearRect(0, 0, canvas.width, canvas.height);
+        ctx.fillStyle = 'rgba(255, 255, 255, 0.5)';
+        stars.forEach(star => {
+          ctx.beginPath();
+          ctx.arc(star.x, star.y, star.radius, 0, Math.PI * 2);
+          ctx.fillStyle = `rgba(255, 255, 255, ${star.opacity})`;
+          ctx.fill();
+          star.y += star.speed;
+          if (star.y > canvas.height) star.y = 0;
+        });
+        pleiades.forEach(star => {
+          ctx.beginPath();
+          ctx.arc(star.x, star.y, star.radius, 0, Math.PI * 2);
+          ctx.fillStyle = `rgba(255, 255, 255, ${star.opacity})`;
+          ctx.fill();
+        });
+        requestAnimationFrame(drawStars);
+      } catch (e) {
+        console.error('Error in drawStars:', e);
+        showNotification('خطأ في رسم النجوم: ' + e.message, 'error');
+      }
+    }
+    drawStars();
+    // Notification function
+    function showNotification(message, type) {
+      const notification = document.getElementById('notification');
+      notification.textContent = message;
+      notification.classList.remove('success', 'error');
+      notification.classList.add(type, 'custom-alert');
+      notification.classList.add('show');
+      setTimeout(() => {
+        notification.classList.remove('show');
+      }, 3000);
+    }
+    // Form scripts
+    function switchForm() {
+      try {
+        const type = document.getElementById('requestType').value;
+        console.log('Selected form type:', type);
+        document.getElementById('formTitle').textContent = type ? `نموذج ${type}` : 'اختر نوع الطلب';
+        const forms = document.querySelectorAll('.form-section');
+        forms.forEach(f => f.classList.remove('active'));
+        let formId;
+        switch (type) {
+          case 'فصل':
+            formId = 'formDismissal';
+            break;
+          case 'حكم':
+            formId = 'formJudgment';
+            break;
+          case 'استدعاء':
+            formId = 'formSummon';
+            break;
+          case 'تسجيل_دخول':
+            formId = 'formLogin';
+            break;
+          case 'تعيين':
+            formId = 'formAssignment';
+            break;
+          case 'ترقية':
+            formId = 'formPromotion';
+            break;
+          case 'إعفاء':
+            formId = 'formExemption';
+            break;
+          default:
+            formId = null;
+        }
+        if (formId) {
+          const form = document.getElementById(formId);
+          if (form) {
+            form.classList.add('active');
+            console.log(`Showing form: ${formId}`);
+          } else {
+            console.error(`Form with ID ${formId} not found`);
+            showNotification(`خطأ: النموذج ${formId} غير موجود`, 'error');
+          }
+        } else {
+          console.log('No form selected');
+        }
+      } catch (e) {
+        console.error('Error in switchForm:', e);
+        showNotification('خطأ أثناء تبديل النموذج: ' + e.message, 'error');
+      }
+    }
+    function validateId(id) {
+      return /^\d+$/.test(id.trim());
+    }
+    function copyDismissal() {
+      try {
+        const issuer = document.getElementById('issuerDismissal').value.trim();
+        const investigationFile = document.getElementById('investigationFileDismissal').value.trim();
+        const soldierCopyId = document.getElementById('soldierCopyIdDismissal').value.trim();
+        const soldierNameCode = document.getElementById('soldierNameCode').value.trim();
+        const judgment = document.getElementById('judgmentDismissal').value.trim();
+        const reason = document.getElementById('reasonDismissal').value.trim();
+        if (!issuer || !investigationFile || !soldierCopyId || !judgment || !reason) {
+          showNotification('يرجى ملء جميع الحقول المطلوبة', 'error');
+          return;
+        }
+        if (!validateId(soldierCopyId)) {
+          showNotification('كوبي آيدي العسكري يجب أن يحتوي على أرقام فقط', 'error');
+          return;
+        }
+        const issuerText = issuer === '1271924904488337598' 
+          ? 'قرار حكم صادر من رئـاسـة : <@&1271924904488337598>' 
+          : 'قرار حكم صادر من : <@&1271924904488337599>';
+        let soldierInfo = `<@${soldierCopyId}>`;
+        if (soldierNameCode) {
+        }
+        const text = `**﷽
+_
+﴿وَإِذَا حَكَمْتُمْ بَيْنَ النَّاسِ أَنْ تَحْكُمُوا بِالْعَدْلِ﴾
+
+${issuerText}
+
+وبناءً على ما ورد في ملف تحقيق رقم : ${investigationFile}
+
+على العسكري المذكور أدناه : 
+${soldierInfo}  
+${soldierNameCode}
+
+وبعد ماتم مناقشته مع المجلس العسكري والقُضاه فقد تقرر على المُدين اعلاه بالحكم :
+
+\`الحكم : ${judgment}\`
+
+\`السبب : ${reason}\`
+
+‏\`\`\`diff
+- يجب على الجميع الالتزام بقوانين الأمن العام ( الشرطة العسكرية تراقب الجميع )
+\`\`\`
+
+ترسل نسخة لـ <@&1271924904467628180>
+
+توقيع :  
+
+<@191325235549569024> <:__:1331348769610141839>
+<@818362704904847412> <:__:1331348769610141839>
+<@1037387897910870066> <:__:1331348769610141839>
+
+إعتماد :
+
+<@&1271924904593330267> | <@984911897893695488>
+<@&1271924904572227603> | <@725655535172714608>**`;
+        navigator.clipboard.writeText(text).then(() => {
+          showNotification('✅ تم نسخ نموذج الفصل العسكري!', 'success');
+        }).catch((e) => {
+          console.error('Clipboard error:', e);
+          showNotification('فشل النسخ التلقائي، يرجى النسخ يدوياً', 'error');
+        });
+      } catch (e) {
+        console.error('Error in copyDismissal:', e);
+        showNotification('خطأ أثناء نسخ نموذج الفصل: ' + e.message, 'error');
+      }
+    }
+    function copyMilitaryJudgment() {
+      try {
+        const issuer = document.getElementById('issuerJudgment').value.trim();
+        const investigationFile = document.getElementById('investigationFileJudgment').value.trim();
+        const soldierCopyId = document.getElementById('soldierCopyIdJudgment').value.trim();
+        const judgment = document.getElementById('judgmentJudgment').value.trim();
+        const reason = document.getElementById('reasonJudgment').value.trim();
+        if (!issuer || !investigationFile || !soldierCopyId || !judgment || !reason) {
+          showNotification('يرجى ملء جميع الحقول المطلوبة', 'error');
+          return;
+        }
+        if (!validateId(soldierCopyId)) {
+          showNotification('كوبي آيدي العسكري يجب أن يحتوي على أرقام فقط', 'error');
+          return;
+        }
+        const issuerText = issuer === '1271924904488337598' 
+          ? 'قرار حكم صادر من رئـاسـة : <@&1271924904488337598>' 
+          : 'قرار حكم صادر من : <@&1271924904488337599>';
+        const text = `**﷽
+
+﴿وَإِذَا حَكَمْتُمْ بَيْنَ النَّاسِ أَنْ تَحْكُمُوا بِالْعَدْلِ﴾
+
+${issuerText}
+
+وبناءً على ما ورد في ملف تحقيق رقم : ${investigationFile}
+
+على العسكري المذكور أدناه : 
+<@${soldierCopyId}>  
+
+وبعد ماتم مناقشته مع المجلس العسكري والقُضاه فقد تقرر على المُدين اعلاه بالحكم :
+
+\`الحكم : ${judgment}\`
+
+\`السبب : ${reason}\`
+
+‏\`\`\`diff
+- يجب على الجميع الالتزام بقوانين الأمن العام ( الشرطة العسكرية تراقب الجميع )
+\`\`\`
+
+ترسل نسخة لـ <@&1271924904467628180>
+
+توقيع :  
+
+<@191325235549569024> <:__:1331348769610141839>
+<@818362704904847412> <:__:1331348769610141839>
+<@1037387897910870066> <:__:1331348769610141839>
+
+إعتماد :
+
+<@&1271924904593330267> | <@984911897893695488>
+<@&1271924904572227603> | <@725655535172714608>**`;
+        navigator.clipboard.writeText(text).then(() => {
+          showNotification('✅ تم نسخ نموذج الحكم العسكري!', 'success');
+        }).catch((e) => {
+          console.error('Clipboard error:', e);
+          showNotification('فشل النسخ التلقائي، يرجى النسخ يدوياً', 'error');
+        });
+      } catch (e) {
+        console.error('Error in copyMilitaryJudgment:', e);
+        showNotification('خطأ أثناء نسخ نموذج الحكم: ' + e.message, 'error');
+      }
+    }
+    function copySummon() {
+      try {
+        const additionalIds = document.getElementById('additionalIdsSummon').value.trim().split('\n')
+          .filter(id => id.trim() !== '')
+          .map(id => id.trim());
+        if (!additionalIds.length) {
+          showNotification('يرجى ملء حقل المنشنات الإضافية', 'error');
+          return;
+        }
+        for (const id of additionalIds) {
+          if (!validateId(id)) {
+            showNotification('كوبي آيدي العسكري يجب أن يحتوي على أرقام فقط', 'error');
+            return;
+          }
+        }
+        const formattedIds = additionalIds.map(id => `<@${id}>`).join('\n');
+        const text = `**﷽
+
+\`الموضوع :\`  إستدعاء
+
+\`الـعسكري :\`
+
+${formattedIds}
+
+توجه ⁠الى روم https://discord.com/channels/1271924904224362506/1272168590820511845
+
+\`لديك مهلة 3 ساعات خلاف ذلك يصدر الحكم مباشرة\`
+
+‏\`\`\`diff
+-- يمنع عليك مباشرة الميدان الا بعد التوجه لـ  الشرطه 1
+- خلاف ذلك يتم الحكم عليك غيابياً ويصدر الحكم فوراً
+\`\`\`
+
+هذا والله ولي التوفيق وصلى الله وسلم على نبينا محمد**`;
+        navigator.clipboard.writeText(text).then(() => {
+          showNotification('✅ تم نسخ نموذج الاستدعاء العسكري!', 'success');
+        }).catch((e) => {
+          console.error('Clipboard error:', e);
+          showNotification('فشل النسخ التلقائي، يرجى النسخ يدوياً', 'error');
+        });
+      } catch (e) {
+        console.error('Error in copySummon:', e);
+        showNotification('خطأ أثناء نسخ نموذج الاستدعاء: ' + e.message, 'error');
+      }
+    }
+    function copyLogin() {
+      try {
+        const additionalIds = document.getElementById('additionalIdsLogin').value.trim().split('\n')
+          .filter(id => id.trim() !== '')
+          .map(id => id.trim());
+        if (!additionalIds.length) {
+          showNotification('يرجى ملء حقل المنشنات الإضافية', 'error');
+          return;
+        }
+        for (const id of additionalIds) {
+          if (!validateId(id)) {
+            showNotification('كوبي آيدي العسكري يجب أن يحتوي على أرقام فقط', 'error');
+            return;
+          }
+        }
+        const formattedIds = additionalIds.map(id => `<@${id}>`).join('\n');
+        const text = `**﷽
+
+\`\`\`diff
+- بادر تسجيل دخول في الخدمة العسكرية
+\`\`\`
+
+${formattedIds}
+
+في حال عندك اشكالية 
+
+https://discord.com/channels/1271924904224362506/1305886304361517056
+
+مهلة 20 دقيقة**`;
+        navigator.clipboard.writeText(text).then(() => {
+          showNotification('✅ تم نسخ نموذج تسجيل الدخول!', 'success');
+        }).catch((e) => {
+          console.error('Clipboard error:', e);
+          showNotification('فشل النسخ التلقائي، يرجى النسخ يدوياً', 'error');
+        });
+      } catch (e) {
+        console.error('Error in copyLogin:', e);
+        showNotification('خطأ أثناء نسخ نموذج تسجيل الدخول: ' + e.message, 'error');
+      }
+    }
+    function copyAssignment() {
+      try {
+        const assignmentSection = document.getElementById('assignmentSection').value;
+        const soldierIds = document.getElementById('soldierIdsAssignment').value.trim().split('\n')
+          .filter(id => id.trim() !== '')
+          .map(id => id.trim());
+        if (!assignmentSection || !soldierIds.length) {
+          showNotification('يرجى ملء حقل قسم التعيين ومنشنات العسكريين', 'error');
+          return;
+        }
+        for (const id of soldierIds) {
+          if (!validateId(id)) {
+            showNotification('كوبي آيدي العسكري يجب أن يحتوي على أرقام فقط', 'error');
+            return;
+          }
+        }
+        const formattedIds = soldierIds.map(id => `<@${id}>`).join('\n');
+        const text = `**﷽
+
+-  قرار صادر من  رئـاسـة: <@&1271924904488337598>
+
+الموضوع : || تعيين ||
+
+- ينص على :
+
+ــــــــــــــــــــــــــــــــــــــــــــــــــــــــــــــــــــــــــــــــــــــــــــــــــــــــــــــــــــــــــــــــــــــــــ
+
+يتم تعيين المذكورين أدناه بـ ${assignmentSection}
+
+:POLICE_RYD: ${assignmentSection} :POLICE_RYD:
+
+${formattedIds}
+
+ــــــــــــــــــــــــــــــــــــــــــــــــــــــــــــــــــــــــــــــــــــــــــــــــــــــــــــــــــــــــــــــــــــــــــ
+
+توقيع : :__:
+
+<@&1271924904488337598>
+<@191325235549569024> :__:
+<@818362704904847412> :__:
+<@1037387897910870066> :__:
+
+إعتماد :
+
+<@&1271924904593330267> \\ <@984911897893695488> :__:
+<@&1271924904572227603> \\ <@725655535172714608> :__: **`;
+        navigator.clipboard.writeText(text).then(() => {
+          showNotification('✅ تم نسخ نموذج التعيين العسكري!', 'success');
+        }).catch((e) => {
+          console.error('Clipboard error:', e);
+          showNotification('فشل النسخ التلقائي، يرجى النسخ يدوياً', 'error');
+        });
+      } catch (e) {
+        console.error('Error in copyAssignment:', e);
+        showNotification('خطأ أثناء نسخ نموذج التعيين: ' + e.message, 'error');
+      }
+    }
+    function copyPromotion() {
+      try {
+        const fromSection = document.getElementById('fromSection').value;
+        const toSection = document.getElementById('toSection').value;
+        const soldierCopyIds = document.getElementById('soldierCopyIdPromotion').value.trim().split('\n')
+          .filter(id => id.trim() !== '')
+          .map(id => id.trim());
+        if (!fromSection || !toSection || !soldierCopyIds.length) {
+          showNotification('يرجى ملء جميع الحقول المطلوبة', 'error');
+          return;
+        }
+        for (const id of soldierCopyIds) {
+          if (!validateId(id)) {
+            showNotification('كوبي آيدي العسكري يجب أن يحتوي على أرقام فقط', 'error');
+            return;
+          }
+        }
+        const formattedIds = soldierCopyIds.map(id => `<@${id}>`).join('\n');
+        const text = `**﷽
+
+  قرار صادر من  رئـاسـة: <@&1271924904488337598>
+
+      
+ 
+
+ الموضوع : ||  ترقية  ||
+
+ - ينص على : 
+
+ــــــــــــــــــــــــــــــــــــــــــــــــــــــــــــــــــــــــــــــــــــــــــــــــــــــــــــــــــــــــــــــــــــــــــ
+
+ يتم رفع المذكورين ادناهم من ${fromSection} الى ${toSection}
+
+${formattedIds}
+
+توقيع :
+
+<@&1271924904488337598> 
+<@191325235549569024> :__:
+<@818362704904847412> :__:
+<@1037387897910870066> :__:
+
+إعتماد :
+
+<@&1271924904593330267> <@984911897893695488>  
+<@&1271924904572227603> <@725655535172714608>**`;
+        navigator.clipboard.writeText(text).then(() => {
+          showNotification('✅ تم نسخ نموذج الترقية العسكرية!', 'success');
+        }).catch((e) => {
+          console.error('Clipboard error:', e);
+          showNotification('فشل النسخ التلقائي، يرجى النسخ يدوياً', 'error');
+        });
+      } catch (e) {
+        console.error('Error in copyPromotion:', e);
+        showNotification('خطأ أثناء نسخ نموذج الترقية: ' + e.message, 'error');
+      }
+    }
+    function copyExemption() {
+      try {
+        const soldierCopyIds = document.getElementById('soldierCopyIdExemption').value.trim().split('\n')
+          .filter(id => id.trim() !== '')
+          .map(id => id.trim());
+        if (!soldierCopyIds.length) {
+          showNotification('يرجى ملء حقل كوبي آيدي العسكري', 'error');
+          return;
+        }
+        for (const id of soldierCopyIds) {
+          if (!validateId(id)) {
+            showNotification('كوبي آيدي العسكري يجب أن يحتوي على أرقام فقط', 'error');
+            return;
+          }
+        }
+        const formattedIds = soldierCopyIds.map(id => `<@${id}>`).join('\n');
+        const text = `**﷽
+
+ قرار صادر من  رئـاسـة: <@&1271924904488337598>  
+
+      
+ 
+
+ الموضوع : ||  اعـفـاء  ||
+
+-  ينص على  : 
+
+ــــــــــــــــــــــــــــــــــــــــــــــــــــــــــــــــــــــــــــــــــــــــــــــــــــــــــــــــــــــــــــــــــــــــــ
+
+يتم اعفاء المذكورين ادناهم من [  - -  <@&1271924904488337598>   - -  ] 
+
+${formattedIds}
+
+-----------------------------------------------
+
+شكراً لك على ماقدمته لخدمة القطاع
+
+ترسل نسخة لـ <@&1271924904467628180>  
+
+توقيع :
+
+<@191325235549569024> :__:
+<@818362704904847412> :__:
+<@1037387897910870066> :__:
+
+إعتماد :
+
+<@&1271924904593330267> <@984911897893695488>  
+<@&1271924904572227603> <@725655535172714608>**`;
+        navigator.clipboard.writeText(text).then(() => {
+          showNotification('✅ تم نسخ نموذج الإعفاء العسكري بنجاح!', 'success');
+        }).catch((e) => {
+          console.error('Clipboard error:', e);
+          showNotification('فشل النسخ التلقائي، يرجى النسخ يدويًا', 'error');
+        });
+      } catch (e) {
+        console.error('Error in copyExemption:', e);
+        showNotification('خطأ أثناء نسخ نموذج الإعفاء: ' + e.message, 'error');
+      }
+    }
+    function format12Hour(date) {
+      try {
+        let hours = date.getHours();
+        const minutes = date.getMinutes();
+        const ampm = hours >= 12 ? 'م' : 'ص';
+        hours = hours % 12;
+        if (hours === 0) hours = 12;
+        const minutesStr = minutes < 10 ? '0' + minutes : minutes;
+        return hours + ':' + minutesStr + ' ' + ampm;
+      } catch (e) {
+        console.error('Error in format12Hour:', e);
+        showNotification('خطأ في تنسيق الوقت: ' + e.message, 'error');
+        return '';
+      }
+    }
+    function formatDateYMD(date) {
+      try {
+        const y = date.getFullYear();
+        let m = date.getMonth() + 1;
+        let d = date.getDate();
+        m = m < 10 ? '0' + m : m;
+        d = d < 10 ? '0' + d : d;
+        return `${y}/${m}/${d}`;
+      } catch (e) {
+        console.error('Error in formatDateYMD:', e);
+        showNotification('خطأ في تنسيق التاريخ: ' + e.message, 'error');
+        return '';
+      }
+    }
+    // Loading overlay
+    (function() {
+      const overlay = document.getElementById('loadingOverlay');
+      if (!overlay) {
+        console.warn('Loading overlay element not found!');
+        return;
+      }
+      const FADE_MS = 1000;
+      const MIN_SHOW_MS = 1200;
+      const start = performance.now();
+      function hideOverlay() {
+        overlay.classList.add('fade-out');
+        setTimeout(() => overlay.remove(), FADE_MS);
+      }
+      window.addEventListener('load', () => {
+        const elapsed = performance.now() - start;
+        const remaining = Math.max(0, MIN_SHOW_MS - elapsed);
+        setTimeout(hideOverlay, remaining);
+      });
+      setTimeout(() => {
+        if (overlay && overlay.classList.contains('fade-out') === false) {
+          hideOverlay();
+        }
+      }, 10000);
+    })();
+  </script>
+</body>
+</html>
